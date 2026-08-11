@@ -93,10 +93,10 @@ def get_html_report_data(
     result = {
         "bossName": boss,
         "fightDuration": fight_duration,
-        "topDmgPlayerName": top_dmg,
-        "topCcPlayerName": top_cc,
-        "bottomDmgPlayerName": bottom_dmg,
-        "bottomCcPlayerName": bottom_cc,
+        "topDmg": top_dmg,
+        "topCc": top_cc,
+        "bottomDmg": bottom_dmg,
+        "bottomCc": bottom_cc,
         "defensiveStats": defensive_stats,
         "totalTimesDowned": total_times_downed,
         "totalTimesDied": total_times_died,
@@ -114,6 +114,12 @@ def format_duration(ms: int) -> str:
     return f"{minutes}:{seconds:02d}.{millis:03d}"
 
 
+def _get_and_add_value(parsed: dict[str, Any], key: str, parts: list[str]):
+    value = parsed.get(key)
+    if value is not None:
+        parts.append(f"{key}={value}")
+
+
 def summarize_log(parsed: dict[str, Any]) -> str:
     boss = (
         parsed.get("bossName")
@@ -124,28 +130,18 @@ def summarize_log(parsed: dict[str, Any]) -> str:
     kill_time_ms = (
         parsed.get("fightDuration") or parsed.get("duration") or parsed.get("killTime")
     )
-    top_dmg = parsed.get("topDmgPlayerName")
-    top_cc = parsed.get("topCcPlayerName")
-    bottom_dmg = parsed.get("bottomDmgPlayerName")
-    bottom_cc = parsed.get("bottomCcPlayerName")
-    total_downed = parsed.get("totalTimesDowned")
-    total_died = parsed.get("totalTimesDied")
 
     parts = [f"Boss={boss}"]
     if kill_time_ms is not None:
         parts.append(f"KillTime={format_duration(int(kill_time_ms))}")
     else:
         parts.append("KillTime=<unknown>")
-    if top_dmg:
-        parts.append(f"TopDmg={top_dmg}")
-    if top_cc:
-        parts.append(f"TopCC={top_cc}")
-    if bottom_dmg:
-        parts.append(f"BottomDmg={bottom_dmg}")
-    if bottom_cc:
-        parts.append(f"BottomCC={bottom_cc}")
-    if total_downed is not None:
-        parts.append(f"TotalDowned={total_downed}")
-    if total_died is not None:
-        parts.append(f"TotalDied={total_died}")
-    return ", ".join(parts)
+
+    _get_and_add_value(parsed, "topDmg", parts)
+    _get_and_add_value(parsed, "topCc", parts)
+    _get_and_add_value(parsed, "bottomDmg", parts)
+    _get_and_add_value(parsed, "bottomCc", parts)
+    _get_and_add_value(parsed, "totalTimesDowned", parts)
+    _get_and_add_value(parsed, "totalTimesDied", parts)
+
+    return "\n".join(parts)

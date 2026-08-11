@@ -8,6 +8,7 @@ from src.convert import (
     parse_with_elite_insights,
 )
 from src.data import summarize_log
+from src.discord_integration import summarize_discord_message
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -36,6 +37,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default="ei_output",
         help="Output directory for Elite Insights parser files.",
     )
+    parser.add_argument(
+        "--listen",
+        action="store_true",
+        help="Listen for messages mentioning this bot and summarize dps.report links.",
+    )
     return parser
 
 
@@ -59,6 +65,44 @@ async def run_discord_bot(token: str, summaries: list[str]) -> None:
     await client.start(token)
 
 
+async def run_discord_listener(token: str) -> None:
+    try:
+        import discord
+    except ImportError:
+        raise RuntimeError(
+            "discord.py is not installed. Install it with: python -m pip install discord.py"
+        )
+
+    intents = discord.Intents.default()
+    intents.message_content = True
+
+    class BotClient(discord.Client):
+        async def on_ready(self):
+            print(f"Connected to Discord as {self.user}")
+
+        async def on_message(self, message):
+            if message.author == self.user or self.user not in message.mentions:
+                return
+
+            reports = summarize_discord_message(message.content)
+            if not reports:
+                await message.reply(
+                    "I could not find a dps.report link in that message."
+                )
+                return
+
+            for report in reports:
+                if report.error:
+                    response = f"{report.url}\nFailed to process report: {report.error}"
+                else:
+                    response = report.text
+                for start in range(0, len(response), 1900):
+                    await message.reply(response[start : start + 1900])
+
+    client = BotClient(intents=intents)
+    await client.start(token)
+
+
 def main() -> int:
     parser = build_arg_parser()
     args = parser.parse_args()
@@ -67,6 +111,21 @@ def main() -> int:
             "Warning: No Discord token provided. The bot will only print summaries to the console."
         )
         args.print_only = True
+
+    token = args.token or os.environ.get("DISCORD_TOKEN")
+    if args.listen:
+        if not token:
+            print("No Discord token provided. Set --token or DISCORD_TOKEN to listen.")
+            return 1
+        try:
+            import asyncio
+
+            asyncio.run(run_discord_listener(token))
+        except Exception as exc:
+            print(f"Discord listener failed: {exc}")
+            return 1
+        return 0
+
     paths = find_zevtc_files(args.paths)
     if not paths:
         print("No log files found.")
@@ -99,7 +158,6 @@ def main() -> int:
     if args.print_only:
         return 0
 
-    token = args.token or os.environ.get("DISCORD_TOKEN")
     if not token:
         print("No Discord token provided. Set --token or DISCORD_TOKEN to connect.")
         return 1

@@ -1,0 +1,7 @@
+__pycache__
+.mypy_cache
+build
+node_modules
+GW2-Elite-Insights-Parser
+logs/
+ei_output/

@@ -11,10 +11,11 @@ def main() -> int:
     parser.add_argument(
         "message",
         nargs="*",
+        default="@flamebot \n\nhttps://dps.report/6Ife-20260726-091807_gors",
         help="Message text. Reads one message from stdin when omitted.",
     )
     args = parser.parse_args()
-    message = " ".join(args.message) if args.message else sys.stdin.read()
+    message = args.message.split("\n") if args.message else [""]
     reports = summarize_discord_message(message)
 
     if not reports:

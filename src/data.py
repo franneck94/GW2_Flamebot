@@ -76,14 +76,14 @@ def get_html_report_data(
             for target_vals in breakbar:
                 cc_total += final_value(target_vals)  # type: ignore
 
-            if damage_total > best_dmg: # type: ignore
-                best_dmg = damage_total # type: ignore
+            if damage_total > best_dmg:  # type: ignore
+                best_dmg = damage_total  # type: ignore
                 top_dmg = name
             if cc_total > best_cc:
                 best_cc = cc_total
                 top_cc = name
             # bottom (minimum) values - include zeros as valid
-            if worst_dmg is None or damage_total < worst_dmg: # type: ignore
+            if worst_dmg is None or damage_total < worst_dmg:  # type: ignore
                 worst_dmg = damage_total
                 bottom_dmg = name
             if worst_cc is None or cc_total < worst_cc:

@@ -94,10 +94,13 @@ def parse_with_elite_insights(cli_path: Path, zevtc_path: Path, out_dir: Path) -
         html_path = html_paths[0] if html_paths else None
 
     if html_path is None:
-        raise RuntimeError(f"No HTML report found for {zevtc_path}. CLI output:\n{output}")
+        raise RuntimeError(
+            f"No HTML report found for {zevtc_path}. CLI output:\n{output}"
+        )
 
     html_data = parse_html_report(html_path)
     return html_data
+
 
 def parse_html_report(html_path: Path) -> dict:
     text = html_path.read_text(encoding="utf-8", errors="ignore")

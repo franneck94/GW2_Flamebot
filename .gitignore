@@ -4,3 +4,4 @@ build
 node_modules
 GW2-Elite-Insights-Parser
 ei_output
+logs/

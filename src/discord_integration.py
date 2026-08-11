@@ -40,6 +40,7 @@ def summarize_dps_report_urls(
     """Download and summarize reports sequentially, preserving input order."""
     summaries = []
     for url in urls:
+        print("[DEBUG] Downloading and summarizing report:", url)
         try:
             summaries.append(ReportSummary(url=url, text=summarize_log(loader(url))))
         except Exception as exc:

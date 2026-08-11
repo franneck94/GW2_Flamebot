@@ -1,7 +1,19 @@
 import argparse
-import sys
 
 from src.discord_integration import summarize_discord_message
+
+
+DEFULT_MESSAGE = """
+@flamebot
+
+10.08.2026
+
+https://dps.report/QdXn-20260810-193601_sabir
+https://dps.report/nZJZ-20260810-221922_vg
+https://dps.report/XUaC-20260810-221417_xera
+https://dps.report/b4aN-20260810-220803_sab
+https://dps.report/qB2G-20260810-220301_gors
+"""
 
 
 def main() -> int:
@@ -11,7 +23,7 @@ def main() -> int:
     parser.add_argument(
         "message",
         nargs="*",
-        default="@flamebot \n\nhttps://dps.report/6Ife-20260726-091807_gors",
+        default=DEFULT_MESSAGE,
         help="Message text. Reads one message from stdin when omitted.",
     )
     args = parser.parse_args()

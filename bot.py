@@ -1,6 +1,5 @@
 import argparse
 import os
-from pprint import pprint
 from pathlib import Path
 
 from src.convert import (
@@ -95,7 +94,7 @@ def main() -> int:
             summaries.append(f"{abs_path.name}: failed to parse EVTC: {exc}")
 
     for line in summaries:
-        pprint(line)
+        print(line)
 
     if args.print_only:
         return 0

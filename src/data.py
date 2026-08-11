@@ -31,6 +31,14 @@ def final_value(value: list | float | int) -> list | float | int:
     return value or 0.0
 
 
+def damage_per_second(
+    total_damage: float | int, duration_ms: int | None
+) -> float | None:
+    if not duration_ms:
+        return None
+    return total_damage / (duration_ms / 1000)
+
+
 def _above_90_percentage(
     stats: list,
     total_column: OffensiveStatsColumn,
@@ -84,6 +92,10 @@ def get_html_report_data(
     top_cc = None
     bottom_dmg = None
     bottom_cc = None
+    top_dmg_value = None
+    top_cc_value = None
+    bottom_dmg_value = None
+    bottom_cc_value = None
     boon_providers: dict[str, dict[str, Any]] = {"quickness": {}, "alacrity": {}}
     boon_dps: list[str] = []
     boon_heal: list[str] = []
@@ -112,19 +124,22 @@ def get_html_report_data(
             if damage_total > best_dmg:  # type: ignore
                 best_dmg = damage_total  # type: ignore
                 top_dmg = name
+                top_dmg_value = damage_total
             if cc_total > best_cc:
                 best_cc = cc_total
                 top_cc = name
+                top_cc_value = cc_total
             # bottom (minimum) values - include zeros as valid
             if worst_dmg is None or damage_total < worst_dmg:  # type: ignore
                 worst_dmg = damage_total
                 bottom_dmg = name
+                bottom_dmg_value = damage_total
             if worst_cc is None or cc_total < worst_cc:
                 worst_cc = cc_total
                 bottom_cc = name
+                bottom_cc_value = cc_total
 
         phase = log_data.get("phases", [{}])[0]
-        duration_ms = phase.get("duration") or 0
         players = log_data["players"]
         self_generation = phase.get("buffsStatContainer", {}).get(
             "boonGenActiveSelfStats", []
@@ -153,27 +168,23 @@ def get_html_report_data(
 
         writ_candidates = []
         for idx, player in enumerate(players):
-            if idx >= len(phase.get("offensiveStats", [])) or not player.get("name"):
+            if not player.get("name"):
                 continue
-            stats = phase["offensiveStats"][idx]
-            percentages = [
-                value
-                for value in (
-                    _above_90_percentage(
-                        stats,
-                        OffensiveStatsColumn.POWER_HITS,
-                        OffensiveStatsColumn.POWER_HITS_ABOVE_90,
-                    ),
-                    _above_90_percentage(
-                        stats,
-                        OffensiveStatsColumn.CONDITION_HITS,
-                        OffensiveStatsColumn.CONDITION_HITS_ABOVE_90,
-                    ),
-                )
-                if value is not None
-            ]
-            if percentages:
-                writ_candidates.append((player["name"], min(percentages)))
+            name = player["name"]
+            target_stats = phase.get("offensiveStatsTargets", [])
+            if idx < len(target_stats) and target_stats[idx]:
+                stats = target_stats[idx][0]
+            elif idx < len(phase.get("offensiveStats", [])):
+                stats = phase["offensiveStats"][idx]
+            else:
+                continue
+            power_above_90 = _above_90_percentage(
+                stats,
+                OffensiveStatsColumn.POWER_HITS,
+                OffensiveStatsColumn.POWER_HITS_ABOVE_90,
+            )
+            if power_above_90 is not None:
+                writ_candidates.append((name, power_above_90))
         if writ_candidates:
             lowest_writ_uptime = min(writ_candidates, key=lambda item: item[1])
 
@@ -187,15 +198,25 @@ def get_html_report_data(
             if idx < len(players) and players[idx].get("name") not in healer_names
         ]
         if eligible_damage:
-            bottom_dmg = min(eligible_damage, key=lambda item: item[1])[0]
+            bottom_dmg, bottom_dmg_value = min(
+                eligible_damage, key=lambda item: item[1]
+            )
 
     result = {
         "bossName": boss,
         "fightDuration": fight_duration,
         "topDmg": top_dmg,
+        "topDps": damage_per_second(top_dmg_value, fight_duration)
+        if top_dmg_value is not None
+        else None,
         "topCc": top_cc,
+        "topCcValue": top_cc_value,
         "bottomDmg": bottom_dmg,
+        "bottomDps": damage_per_second(bottom_dmg_value, fight_duration)
+        if bottom_dmg_value is not None
+        else None,
         "bottomCc": bottom_cc,
+        "bottomCcValue": bottom_cc_value,
         "defensiveStats": defensive_stats,
         "totalTimesDowned": total_times_downed,
         "totalTimesDied": total_times_died,
@@ -223,6 +244,28 @@ def _get_and_add_value(parsed: dict[str, Any], key: str, parts: list[str]):
         parts.append(f"{key}={value}")
 
 
+def _get_and_add_stat(
+    parsed: dict[str, Any], name_key: str, value_key: str, parts: list[str]
+) -> None:
+    name = parsed.get(name_key)
+    value = parsed.get(value_key)
+    if name is not None and value is not None:
+        parts.append(f"{name_key}={name} ({value:,.0f})")
+    elif name is not None:
+        parts.append(f"{name_key}={name}")
+
+
+def _get_and_add_damage_stat(
+    parsed: dict[str, Any], name_key: str, dps_key: str, parts: list[str]
+) -> None:
+    name = parsed.get(name_key)
+    dps = parsed.get(dps_key)
+    if name is not None and dps is not None:
+        parts.append(f"{name_key}={name} ({dps:,.0f} DPS)")
+    elif name is not None:
+        parts.append(f"{name_key}={name}")
+
+
 def summarize_log(parsed: dict[str, Any]) -> str:
     boss = (
         parsed.get("bossName")
@@ -240,10 +283,10 @@ def summarize_log(parsed: dict[str, Any]) -> str:
     else:
         parts.append("KillTime=<unknown>")
 
-    _get_and_add_value(parsed, "topDmg", parts)
-    _get_and_add_value(parsed, "topCc", parts)
-    _get_and_add_value(parsed, "bottomDmg", parts)
-    _get_and_add_value(parsed, "bottomCc", parts)
+    _get_and_add_damage_stat(parsed, "topDmg", "topDps", parts)
+    _get_and_add_stat(parsed, "topCc", "topCcValue", parts)
+    _get_and_add_damage_stat(parsed, "bottomDmg", "bottomDps", parts)
+    _get_and_add_stat(parsed, "bottomCc", "bottomCcValue", parts)
     _get_and_add_value(parsed, "totalTimesDowned", parts)
     _get_and_add_value(parsed, "totalTimesDied", parts)
 

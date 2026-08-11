@@ -1,63 +1,14 @@
 import argparse
 import json
 import os
-import re
+from pprint import pprint
 import subprocess
-import sys
 from pathlib import Path
 
 
 def find_local_repo_cli_executable() -> Path | None:
     script_dir = Path(__file__).resolve().parent
-    repo_root = script_dir / "GW2-Elite-Insights-Parser"
-    project_output_candidates = [
-        script_dir / "GW2EICLI" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EI.bin" / "Debug" / "CLI" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EI.bin" / "Release" / "CLI" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EI.bin" / "NoRewards" / "CLI" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EIParserCLI" / "bin" / "Debug" / "net8.0" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EIParserCLI" / "bin" / "Release" / "net8.0" / "GuildWars2EliteInsights-CLI.exe",
-        repo_root / "GW2EIParser" / "bin" / "Debug" / "net8.0" / "GuildWars2EliteInsights.exe",
-        repo_root / "GW2EIParser" / "bin" / "Release" / "net8.0" / "GuildWars2EliteInsights.exe",
-    ]
-    for candidate in project_output_candidates:
-        if candidate.exists():
-            return candidate.resolve()
-    return None
-
-
-def find_cli_executable() -> Path:
-    env_path = os.environ.get("ELITE_INSIGHTS_CLI_PATH")
-    if env_path:
-        candidate = Path(env_path)
-        if candidate.exists():
-            return candidate.resolve()
-
-    local_repo_candidate = find_local_repo_cli_executable()
-    if local_repo_candidate is not None:
-        return local_repo_candidate
-
-    candidates = [
-        Path("GuildWars2EliteInsights-CLI.exe"),
-        Path("GuildWars2EliteInsights.exe"),
-        Path("./GuildWars2EliteInsights-CLI.exe"),
-        Path("./GuildWars2EliteInsights.exe"),
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate.resolve()
-    for part in os.environ.get("PATH", "").split(os.pathsep):
-        candidate = Path(part) / "GuildWars2EliteInsights-CLI.exe"
-        if candidate.exists():
-            return candidate.resolve()
-        candidate = Path(part) / "GuildWars2EliteInsights.exe"
-        if candidate.exists():
-            return candidate.resolve()
-    raise FileNotFoundError(
-        "Could not find GuildWars2EliteInsights-CLI.exe or GuildWars2EliteInsights.exe. "
-        "Build or place the CLI executable in GW2-Elite-Insights-Parser/GW2EI.bin/<Configuration>/CLI/ or pass --ei-cli. "
-        "You can also set ELITE_INSIGHTS_CLI_PATH to the executable path."
-    )
+    return script_dir / "GW2EICLI" / "GuildWars2EliteInsights-CLI.exe"
 
 
 def write_temp_config(config_path: Path) -> None:
@@ -130,6 +81,7 @@ def parse_html_report(html_path: Path) -> dict:
                 player_name = log_data["players"][idx].get("name")
                 if not player_name or not isinstance(def_row, list):
                     continue
+
                 def get_int(index: int) -> int:
                     if index >= len(def_row):
                         return 0
@@ -154,7 +106,11 @@ def parse_html_report(html_path: Path) -> dict:
     bottom_dmg = None
     bottom_cc = None
     if graph_data and log_data.get("players"):
-        phase_players = graph_data.get("phases", [])[0].get("players", []) if graph_data.get("phases") else []
+        phase_players = (
+            graph_data.get("phases", [])[0].get("players", [])
+            if graph_data.get("phases")
+            else []
+        )
 
         def final_value(value):
             if isinstance(value, list) and value:
@@ -292,15 +248,19 @@ def format_duration(ms: int) -> str:
 
 def summarize_log(zevtc_path: Path, cli_path: Path, out_dir: Path) -> str:
     parsed = parse_with_elite_insights(cli_path, zevtc_path, out_dir)
-    # Temporary: pretty-print the parsed dict/json for inspection
-    try:
-        print(json.dumps(parsed, indent=2, ensure_ascii=False))
-    except Exception:
-        print(parsed)
-    boss = parsed.get("bossName") or parsed.get("boss") or parsed.get("fileName") or "<unknown>"
-    kill_time_ms = parsed.get("fightDuration") or parsed.get("duration") or parsed.get("killTime")
+    boss = (
+        parsed.get("bossName")
+        or parsed.get("boss")
+        or parsed.get("fileName")
+        or "<unknown>"
+    )
+    kill_time_ms = (
+        parsed.get("fightDuration") or parsed.get("duration") or parsed.get("killTime")
+    )
     top_dmg = parsed.get("topDmgPlayerName")
     top_cc = parsed.get("topCcPlayerName")
+    bottom_dmg = parsed.get("bottomDmgPlayerName")
+    bottom_cc = parsed.get("bottomCcPlayerName")
     total_downed = parsed.get("totalTimesDowned")
     total_died = parsed.get("totalTimesDied")
 
@@ -313,6 +273,10 @@ def summarize_log(zevtc_path: Path, cli_path: Path, out_dir: Path) -> str:
         parts.append(f"TopDmg={top_dmg}")
     if top_cc:
         parts.append(f"TopCC={top_cc}")
+    if bottom_dmg:
+        parts.append(f"BottomDmg={bottom_dmg}")
+    if bottom_cc:
+        parts.append(f"BottomCC={bottom_cc}")
     if total_downed is not None:
         parts.append(f"TotalDowned={total_downed}")
     if total_died is not None:
@@ -384,7 +348,9 @@ def main() -> int:
     parser = build_arg_parser()
     args = parser.parse_args()
     if not args.token and not args.print_only:
-        print("Warning: No Discord token provided. The bot will only print summaries to the console.")
+        print(
+            "Warning: No Discord token provided. The bot will only print summaries to the console."
+        )
         args.print_only = True
     paths = find_zevtc_files(args.paths)
     if not paths:
@@ -396,12 +362,9 @@ def main() -> int:
 
     cli_path = Path(args.ei_cli) if args.ei_cli else None
     if cli_path is None:
-        try:
-            cli_path = find_cli_executable()
-        except FileNotFoundError as exc:
-            print(exc)
-            return 1
-    elif not cli_path.exists():
+        cli_path = find_local_repo_cli_executable()
+
+    if cli_path is None or not cli_path.exists():
         print(f"Specified EI CLI path does not exist: {cli_path}")
         return 1
 
@@ -415,7 +378,7 @@ def main() -> int:
             summaries.append(f"{abs_path.name}: failed to parse EVTC: {exc}")
 
     for line in summaries:
-        print(line)
+        pprint(line)
 
     if args.print_only:
         return 0
@@ -427,6 +390,7 @@ def main() -> int:
 
     try:
         import asyncio
+
         asyncio.run(run_discord_bot(token, summaries))
     except Exception as exc:
         print(f"Discord bot failed: {exc}")

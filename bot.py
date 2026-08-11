@@ -151,6 +151,8 @@ def parse_html_report(html_path: Path) -> dict:
 
     top_dmg = None
     top_cc = None
+    bottom_dmg = None
+    bottom_cc = None
     if graph_data and log_data.get("players"):
         phase_players = graph_data.get("phases", [])[0].get("players", []) if graph_data.get("phases") else []
 
@@ -161,6 +163,8 @@ def parse_html_report(html_path: Path) -> dict:
 
         best_dmg = -1
         best_cc = -1
+        worst_dmg = None
+        worst_cc = None
         for idx, phase_player in enumerate(phase_players):
             name = None
             if idx < len(log_data["players"]):
@@ -177,12 +181,21 @@ def parse_html_report(html_path: Path) -> dict:
             if cc_total > best_cc:
                 best_cc = cc_total
                 top_cc = name
+            # bottom (minimum) values - include zeros as valid
+            if worst_dmg is None or damage_total < worst_dmg:
+                worst_dmg = damage_total
+                bottom_dmg = name
+            if worst_cc is None or cc_total < worst_cc:
+                worst_cc = cc_total
+                bottom_cc = name
 
     result = {
         "bossName": boss,
         "fightDuration": fight_duration,
         "topDmgPlayerName": top_dmg,
         "topCcPlayerName": top_cc,
+        "bottomDmgPlayerName": bottom_dmg,
+        "bottomCcPlayerName": bottom_cc,
         "defensiveStats": defensive_stats,
         "totalTimesDowned": total_times_downed,
         "totalTimesDied": total_times_died,
@@ -279,6 +292,11 @@ def format_duration(ms: int) -> str:
 
 def summarize_log(zevtc_path: Path, cli_path: Path, out_dir: Path) -> str:
     parsed = parse_with_elite_insights(cli_path, zevtc_path, out_dir)
+    # Temporary: pretty-print the parsed dict/json for inspection
+    try:
+        print(json.dumps(parsed, indent=2, ensure_ascii=False))
+    except Exception:
+        print(parsed)
     boss = parsed.get("bossName") or parsed.get("boss") or parsed.get("fileName") or "<unknown>"
     kill_time_ms = parsed.get("fightDuration") or parsed.get("duration") or parsed.get("killTime")
     top_dmg = parsed.get("topDmgPlayerName")

@@ -1,0 +1,120 @@
+Elapsed 2269 ms
+Parsing: Reading Binary
+Parsing: Parsing log data
+Parsing: ArcDPS Build EVTC20260718
+Parsing: ArcDPS Combat Item Revision 1
+Parsing: Trigger ID 26712
+Parsing: Parsing agent data
+Parsing: Agent Count 275
+Parsing: Parsing skill data
+Parsing: Skill Count 542
+Parsing: Parsing combat list
+Parsing: Combat Event Count 158635
+Parsing: Combat Event Discarded 0
+Parsing: Linking agents to combat list
+Parsing: Creating 0 missing agents
+Parsing: Keeping 275 agents
+Parsing: Adding environment agent
+Parsing: Linking minions to their masters
+Parsing: Regrouping Agents
+Parsing: Adjusting minion names
+Parsing: Creating players
+Parsing: Preparing data for log generation
+Parsing: Identifying critical agents
+Parsing: Offseting time
+Parsing: Offset of 1 ms added
+Parsing: Encounter specific processing
+Parsing: Data parsed
+Parsing: Creating GW2EI Combat Events
+Parsing: Creating EI Combat Data
+Parsing: Combining SkillInfo with SkillData
+Parsing: Creating Cast Events
+Parsing: Creating Buff Events
+Parsing: Creating Damage Events
+Parsing: Creating Buff Dependent Events
+Parsing: Attaching Extension Events
+Parsing: Adjusting player specs and groups based on Enter Combat events
+Parsing: Creating Custom Events
+Parsing: Processing Warrior Gadgets
+Parsing: Processing Engineer Gadgets
+Parsing: Processing Ranger Gadgets
+Parsing: Processing Revenant Gadgets
+Parsing: Processing Antiquary Gadgets
+Parsing: Processing Racial Gadget
+Parsing: Creating Custom Buff Events
+Parsing: Creating Custom Damage Events
+Parsing: Creating Custom Cast Events
+Parsing: Creating Custom Status Events
+Parsing: Checking Log Status
+Parsing: Setting Log Name
+Parsing: Checking Success
+Parsing: Handling active players
+Parsing: Handling friendlies
+Parsing: Player count: 10
+Parsing: Friendlies count: 0
+Parsing: Targets count: 9
+Parsing: Trash Mobs count: 40
+Parsing: Creating GW2EI Log Meta Data
+Parsing: PoV Kiara Thanatos
+Parsing: GW2 Build 204489
+Parsing: Language English
+Parsing: Region EU
+Parsing: Log Start 2026-08-10 21:46:52 +02:00
+Parsing: Log End 2026-08-10 21:50:32 +02:00
+Parsing: Creating Buff Container
+Parsing: Adjusting Skill icons using buffs
+Parsing: Adjusted 154 Skill icons using buffs
+Parsing: Adjusting Buffs
+Parsing: Deduced 52 unknown buff formulas
+Parsing: Adjusted capacity for Fury from 9 to 99
+Parsing: Adjusted capacity for Quickness from 5 to 99
+Parsing: Adjusted capacity for Alacrity from 9 to 99
+Parsing: Adjusted capacity for Protection from 5 to 99
+Parsing: Adjusted capacity for Vigor from 5 to 99
+Parsing: Adjusted capacity for Swiftness from 9 to 99
+Parsing: Adjusted capacity for Resistance from 5 to 99
+Parsing: Adjusted capacity for Resolution from 5 to 99
+Parsing: Adjusted capacity for Chilled from 5 to 9
+Parsing: Adjusted capacity for Crippled from 5 to 9
+Parsing: Adjusted capacity for Fear from 5 to 9
+Parsing: Adjusted capacity for Immobile from 3 to 9
+Parsing: Adjusted capacity for Weakness from 5 to 9
+Parsing: Adjusted capacity for Taunt from 5 to 9
+Parsing: Adjusted capacity for Zealot's Flame from 25 to 9
+Parsing: Adjusted capacity for Skelk Venom from 5 to 25
+Parsing: Adjusted capacity for Devourer Venom from 2 to 10
+Parsing: Adjusted capacity for Spider Venom from 6 to 25
+Parsing: Adjusted capacity for Distortion from 25 to 9
+Parsing: Adjusted capacity for Time Anchored from 25 to 9
+Parsing: Adjusted capacity for Cascading Corruption from 20 to 25
+Parsing: Unknown Formula for Bowl of Fruit Salad with Mint Garnish: Unknown 98:  +20Unknown
+Parsing: Unknown Formula for Bowl of Fruit Salad with Mint Garnish: Unknown 133:  +10Unknown
+Parsing: Unknown Formula for Cilantro Lime Sous-Vide Steak: Unknown 98:  +20Unknown
+Parsing: Unknown Formula for Cilantro Lime Sous-Vide Steak: Unknown 133:  +10Unknown
+Parsing: Unknown Formula for Cilantro and Cured Meat Flatbread: Unknown 98:  +20Unknown
+Parsing: Unknown Formula for Cilantro and Cured Meat Flatbread: Unknown 133:  +10Unknown
+Parsing: Unknown Formula for Peppercorn and Veggie Flatbread: Unknown 98:  +20Unknown
+Parsing: Unknown Formula for Peppercorn and Veggie Flatbread: Unknown 133:  +10Unknown
+Parsing: Unknown Formula for Dragon Trigger: Unknown 104:  -80Unknown
+Parsing: Creating Damage Modifier Container
+Parsing: Creating Mechanic Data
+Parsing: Creating General Statistics Container
+Parsing: Find sources for buff extension events
+Parsing: Multi threading
+Parsing: Initializing Actor dictionary
+Program: Creating File(s)
+Program: Creating HTML
+HTML: replacing global variables
+HTML: building CSS
+HTML: building JS
+HTML: building Combat Replay JS
+HTML: building Log Data
+HTML: building Meta Data
+HTML: building Graph Data
+HTML: building Players
+HTML: building Enemies
+HTML: building Targets
+HTML: building Skill/Buff/Damage Modifier dictionaries
+HTML: building Phases
+Program: HTML created
+Completed for killed ura

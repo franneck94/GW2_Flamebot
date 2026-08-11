@@ -6,6 +6,13 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: simulate_discord",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/simulate_discord.py",
+            "console": "integratedTerminal"
         }
     ]
 }

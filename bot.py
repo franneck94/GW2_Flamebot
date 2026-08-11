@@ -91,36 +91,125 @@ def extract_generated_html_paths(output: str, out_dir: Path) -> list[Path]:
 
 def parse_html_report(html_path: Path) -> dict:
     text = html_path.read_text(encoding="utf-8", errors="ignore")
-    marker = "const _logData = "
-    start = text.find(marker)
-    if start == -1:
-        raise ValueError("Could not find embedded _logData in HTML report")
-    start += len(marker)
-    end_marker = "const _crData ="
-    end = text.find(end_marker, start)
-    if end == -1:
-        raise ValueError("Could not find end of _logData block in HTML report")
-    json_text = text[start:end].strip()
-    if json_text.endswith(";"):
-        json_text = json_text[:-1]
-    data = json.loads(json_text)
 
-    boss = data.get("logName")
-    if boss is None and data.get("targets"):
-        boss = data["targets"][0].get("name")
+    def extract_json(marker: str, end_marker: str) -> dict | None:
+        start = text.find(marker)
+        if start == -1:
+            return None
+        start += len(marker)
+        end = text.find(end_marker, start)
+        if end == -1:
+            return None
+        json_text = text[start:end].strip()
+        if json_text.endswith(";"):
+            json_text = json_text[:-1]
+        return json.loads(json_text)
+
+    log_data = extract_json("const _logData = ", "const _crData =")
+    if log_data is None:
+        raise ValueError("Could not find embedded _logData in HTML report")
+
+    graph_data = extract_json("const _graphData = ", "const _healingStatsExtension =")
+
+    boss = log_data.get("logName")
+    if boss is None and log_data.get("targets"):
+        boss = log_data["targets"][0].get("name")
 
     fight_duration = None
-    if data.get("phases"):
-        first_phase = data["phases"][0]
+    total_times_downed = 0
+    total_times_died = 0
+    defensive_stats = {}
+    if log_data.get("phases"):
+        first_phase = log_data["phases"][0]
         fight_duration = first_phase.get("duration")
+        def_stats = first_phase.get("defStats", [])
+        if def_stats and log_data.get("players"):
+            for idx, def_row in enumerate(def_stats):
+                if idx >= len(log_data["players"]):
+                    break
+                player_name = log_data["players"][idx].get("name")
+                if not player_name or not isinstance(def_row, list):
+                    continue
+                def get_int(index: int) -> int:
+                    if index >= len(def_row):
+                        return 0
+                    value = def_row[index]
+                    if isinstance(value, (int, float)):
+                        return int(value)
+                    if isinstance(value, str) and value.isdigit():
+                        return int(value)
+                    return 0
 
-    return {
+                times_downed = get_int(12)
+                times_died = get_int(14)
+                defensive_stats[player_name] = {
+                    "timesDowned": times_downed,
+                    "timesDied": times_died,
+                }
+                total_times_downed += times_downed
+                total_times_died += times_died
+
+    top_dmg = None
+    top_cc = None
+    if graph_data and log_data.get("players"):
+        phase_players = graph_data.get("phases", [])[0].get("players", []) if graph_data.get("phases") else []
+
+        def final_value(value):
+            if isinstance(value, list) and value:
+                return value[-1]
+            return value or 0
+
+        best_dmg = -1
+        best_cc = -1
+        for idx, phase_player in enumerate(phase_players):
+            name = None
+            if idx < len(log_data["players"]):
+                name = log_data["players"][idx].get("name")
+            damage_total = final_value(phase_player.get("damage", {}).get("total"))
+            breakbar = phase_player.get("breakbarDamage", {}).get("targets", [])
+            cc_total = 0
+            for target_vals in breakbar:
+                cc_total += final_value(target_vals)
+
+            if damage_total > best_dmg:
+                best_dmg = damage_total
+                top_dmg = name
+            if cc_total > best_cc:
+                best_cc = cc_total
+                top_cc = name
+
+    result = {
         "bossName": boss,
         "fightDuration": fight_duration,
+        "topDmgPlayerName": top_dmg,
+        "topCcPlayerName": top_cc,
+        "defensiveStats": defensive_stats,
+        "totalTimesDowned": total_times_downed,
+        "totalTimesDied": total_times_died,
     }
+    return result
 
 
 def parse_with_elite_insights(cli_path: Path, zevtc_path: Path, out_dir: Path) -> dict:
+    # If an HTML report already exists next to the .zevtc, use it and skip running the CLI.
+    def find_html_next_to(zevtc: Path) -> Path | None:
+        parent = zevtc.parent
+        if not parent.exists():
+            return None
+        candidates = [p for p in parent.glob("*.html") if zevtc.stem in p.name]
+        if not candidates:
+            return None
+        candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return candidates[0].resolve()
+
+    existing_html = find_html_next_to(zevtc_path)
+    if existing_html:
+        try:
+            return parse_html_report(existing_html)
+        except Exception:
+            # Fall back to running the CLI if parsing the existing HTML fails
+            pass
+
     out_dir.mkdir(parents=True, exist_ok=True)
     cfg_path = out_dir / "ei.conf"
     write_temp_config(cfg_path)
@@ -192,9 +281,25 @@ def summarize_log(zevtc_path: Path, cli_path: Path, out_dir: Path) -> str:
     parsed = parse_with_elite_insights(cli_path, zevtc_path, out_dir)
     boss = parsed.get("bossName") or parsed.get("boss") or parsed.get("fileName") or "<unknown>"
     kill_time_ms = parsed.get("fightDuration") or parsed.get("duration") or parsed.get("killTime")
-    if kill_time_ms is None:
-        return f"{zevtc_path.name}: Boss={boss}, KillTime=<unknown>"
-    return f"{zevtc_path.name}: Boss={boss}, KillTime={format_duration(int(kill_time_ms))}"
+    top_dmg = parsed.get("topDmgPlayerName")
+    top_cc = parsed.get("topCcPlayerName")
+    total_downed = parsed.get("totalTimesDowned")
+    total_died = parsed.get("totalTimesDied")
+
+    parts = [f"{zevtc_path.name}: Boss={boss}"]
+    if kill_time_ms is not None:
+        parts.append(f"KillTime={format_duration(int(kill_time_ms))}")
+    else:
+        parts.append("KillTime=<unknown>")
+    if top_dmg:
+        parts.append(f"TopDmg={top_dmg}")
+    if top_cc:
+        parts.append(f"TopCC={top_cc}")
+    if total_downed is not None:
+        parts.append(f"TotalDowned={total_downed}")
+    if total_died is not None:
+        parts.append(f"TotalDied={total_died}")
+    return ", ".join(parts)
 
 
 def find_zevtc_files(paths):

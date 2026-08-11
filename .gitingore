@@ -5,3 +5,6 @@ node_modules
 GW2-Elite-Insights-Parser
 logs/
 ei_output/
+
+*.zevtc
+*.html

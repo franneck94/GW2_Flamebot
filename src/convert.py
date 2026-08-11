@@ -1,3 +1,4 @@
+import requests
 from pathlib import Path
 import json
 import subprocess
@@ -124,3 +125,14 @@ def parse_html_report(html_path: Path) -> dict:
 
     graph_data = extract_json("const _graphData = ", "const _healingStatsExtension =")
     return get_html_report_data(log_data, graph_data)
+
+
+def download_html_report(url: str) -> dict:
+    response = requests.get(url, timeout=30)
+    response.raise_for_status()
+    html_text = response.text
+    temp_path = Path("logs") / f"{url.split('/')[-1]}.html"
+    temp_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path.write_text(html_text, encoding="utf-8", errors="ignore")
+
+    return parse_html_report(temp_path)

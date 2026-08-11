@@ -1,4 +1,17 @@
+from enum import IntEnum
 from typing import Any
+
+
+class DefensiveStatsColumn(IntEnum):
+    TIMES_DOWNED = 12
+    TIMES_DIED = 14
+
+
+class OffensiveStatsColumn(IntEnum):
+    POWER_HITS = 20
+    POWER_HITS_ABOVE_90 = 21
+    CONDITION_HITS = 22
+    CONDITION_HITS_ABOVE_90 = 23
 
 
 def get_int(index: int, def_row: list) -> int:
@@ -16,6 +29,22 @@ def final_value(value: list | float | int) -> list | float | int:
     if isinstance(value, list) and value:
         return value[-1]
     return value or 0.0
+
+
+def _above_90_percentage(
+    stats: list,
+    total_column: OffensiveStatsColumn,
+    above_90_column: OffensiveStatsColumn,
+) -> float | None:
+    total_index = total_column.value
+    above_90_index = above_90_column.value
+    if (
+        total_index >= len(stats)
+        or above_90_index >= len(stats)
+        or not stats[total_index]
+    ):
+        return None
+    return round(stats[above_90_index] / stats[total_index] * 100, 2)
 
 
 def get_html_report_data(
@@ -42,8 +71,8 @@ def get_html_report_data(
                 if not player_name or not isinstance(def_row, list):
                     continue
 
-                times_downed = get_int(12, def_row)
-                times_died = get_int(14, def_row)
+                times_downed = get_int(DefensiveStatsColumn.TIMES_DOWNED, def_row)
+                times_died = get_int(DefensiveStatsColumn.TIMES_DIED, def_row)
                 defensive_stats[player_name] = {
                     "timesDowned": times_downed,
                     "timesDied": times_died,
@@ -55,6 +84,10 @@ def get_html_report_data(
     top_cc = None
     bottom_dmg = None
     bottom_cc = None
+    boon_providers: dict[str, dict[str, Any]] = {"quickness": {}, "alacrity": {}}
+    boon_dps: list[str] = []
+    boon_heal: list[str] = []
+    lowest_writ_uptime = None
     if graph_data and log_data.get("players"):
         phase_players = (
             graph_data.get("phases", [])[0].get("players", [])
@@ -90,6 +123,72 @@ def get_html_report_data(
                 worst_cc = cc_total
                 bottom_cc = name
 
+        phase = log_data.get("phases", [{}])[0]
+        duration_ms = phase.get("duration") or 0
+        players = log_data["players"]
+        self_generation = phase.get("buffsStatContainer", {}).get(
+            "boonGenActiveSelfStats", []
+        )
+        boon_ids = log_data.get("boons", [])
+        for boon_name, boon_id in (("quickness", 1187), ("alacrity", 30328)):
+            for group in sorted({player.get("group") for player in players}):
+                candidates = []
+                for idx, player in enumerate(players):
+                    if player.get("group") != group or idx >= len(self_generation):
+                        continue
+                    data = self_generation[idx].get("data", [])
+                    if boon_id not in boon_ids or boon_ids.index(boon_id) >= len(data):
+                        continue
+                    candidates.append(
+                        (data[boon_ids.index(boon_id)][0], player["name"], idx)
+                    )
+                if candidates:
+                    value, name, idx = max(candidates)
+                    boon_providers[boon_name][str(group)] = {
+                        "name": name,
+                        "percentage": value,
+                        "isHeal": bool(players[idx].get("heal")),
+                    }
+                    (boon_heal if players[idx].get("heal") else boon_dps).append(name)
+
+        writ_candidates = []
+        for idx, player in enumerate(players):
+            if idx >= len(phase.get("offensiveStats", [])) or not player.get("name"):
+                continue
+            stats = phase["offensiveStats"][idx]
+            percentages = [
+                value
+                for value in (
+                    _above_90_percentage(
+                        stats,
+                        OffensiveStatsColumn.POWER_HITS,
+                        OffensiveStatsColumn.POWER_HITS_ABOVE_90,
+                    ),
+                    _above_90_percentage(
+                        stats,
+                        OffensiveStatsColumn.CONDITION_HITS,
+                        OffensiveStatsColumn.CONDITION_HITS_ABOVE_90,
+                    ),
+                )
+                if value is not None
+            ]
+            if percentages:
+                writ_candidates.append((player["name"], min(percentages)))
+        if writ_candidates:
+            lowest_writ_uptime = min(writ_candidates, key=lambda item: item[1])
+
+        healer_names = set(boon_heal)
+        eligible_damage = [
+            (
+                players[idx].get("name"),
+                final_value(phase_player.get("damage", {}).get("total")),
+            )
+            for idx, phase_player in enumerate(phase_players)
+            if idx < len(players) and players[idx].get("name") not in healer_names
+        ]
+        if eligible_damage:
+            bottom_dmg = min(eligible_damage, key=lambda item: item[1])[0]
+
     result = {
         "bossName": boss,
         "fightDuration": fight_duration,
@@ -100,6 +199,10 @@ def get_html_report_data(
         "defensiveStats": defensive_stats,
         "totalTimesDowned": total_times_downed,
         "totalTimesDied": total_times_died,
+        "boonProviders": boon_providers,
+        "boonDps": sorted(set(boon_dps)),
+        "boonHeal": sorted(set(boon_heal)),
+        "lowestWritUptime": lowest_writ_uptime,
     }
     return result
 
@@ -143,5 +246,17 @@ def summarize_log(parsed: dict[str, Any]) -> str:
     _get_and_add_value(parsed, "bottomCc", parts)
     _get_and_add_value(parsed, "totalTimesDowned", parts)
     _get_and_add_value(parsed, "totalTimesDied", parts)
+
+    providers = parsed.get("boonProviders", {})
+    for boon_name in ("quickness", "alacrity"):
+        for group, provider in providers.get(boon_name, {}).items():
+            parts.append(
+                f"{boon_name.title()} G{group}={provider['name']} ({provider['percentage']:.3f}%)"
+            )
+    _get_and_add_value(parsed, "boonDps", parts)
+    _get_and_add_value(parsed, "boonHeal", parts)
+    writ = parsed.get("lowestWritUptime")
+    if writ:
+        parts.append(f"LowestWritUptime={writ[0]} ({writ[1]:.3f}%)")
 
     return "\n".join(parts)

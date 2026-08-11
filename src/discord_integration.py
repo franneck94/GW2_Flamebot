@@ -19,16 +19,17 @@ class ReportSummary:
     error: str | None = None
 
 
-def extract_dps_report_urls(message: str) -> list[str]:
+def extract_dps_report_urls(lines: list[str]) -> list[str]:
     """Return unique dps.report links in message order."""
     urls = []
     seen = set()
-    for match in _DPS_REPORT_URL.finditer(message):
-        url = match.group(0)
-        key = url.casefold()
-        if key not in seen:
-            seen.add(key)
-            urls.append(url)
+    for line in lines:
+        for match in _DPS_REPORT_URL.finditer(line):
+            url = match.group(0)
+            key = url.casefold()
+            if key not in seen:
+                seen.add(key)
+                urls.append(url)
     return urls
 
 
@@ -47,7 +48,8 @@ def summarize_dps_report_urls(
 
 
 def summarize_discord_message(
-    message: str,
+    lines: list[str],
     loader: Callable[[str], dict] = download_html_report,
 ) -> list[ReportSummary]:
-    return summarize_dps_report_urls(extract_dps_report_urls(message), loader)
+    urls = extract_dps_report_urls(lines)
+    return summarize_dps_report_urls(urls, loader)
